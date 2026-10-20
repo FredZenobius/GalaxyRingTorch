@@ -1,35 +1,28 @@
 name: Build RingTorch APK
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Set up Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
-
+          gradle-version: '8.9'
+      - name: Verify source layout
+        run: test -f settings.gradle.kts && test -f app/build.gradle.kts
       - name: Build APK
-        run: gradle assembleDebug --no-daemon
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+        run: gradle --no-daemon :app:assembleDebug
+      - uses: actions/upload-artifact@v4
         with:
-          name: GalaxyRingTorch-APK
+          name: GalaxyRingTorch-v1.2-triple-test
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

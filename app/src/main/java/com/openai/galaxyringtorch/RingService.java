@@ -29,8 +29,8 @@ public class RingService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         NotificationManager nm = getSystemService(NotificationManager.class);
-        nm.createNotificationChannel(new NotificationChannel(CHANNEL,"Ring Torch",NotificationManager.IMPORTANCE_LOW));
-        Notification n = new Notification.Builder(this,CHANNEL).setContentTitle("Ring Torch").setContentText("Galaxy Ring gesture monitoring active").setSmallIcon(android.R.drawable.ic_menu_camera).build();
+        nm.createNotificationChannel(new NotificationChannel(CHANNEL,"갤럭시 링 제스처",NotificationManager.IMPORTANCE_LOW));
+        Notification n = new Notification.Builder(this,CHANNEL).setContentTitle("갤럭시 링 제스처").setContentText("갤럭시 링 제스처 감지 중").setSmallIcon(android.R.drawable.ic_menu_camera).build();
         startForeground(1,n);
         connectRing();
     }
@@ -93,7 +93,27 @@ public class RingService extends Service {
             else { d.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE); g.writeDescriptor(d); }
         }
         @Override public void onDescriptorWrite(BluetoothGatt g,BluetoothGattDescriptor d,int status){ subscribeNext(g); }
-        private void handle(byte[] v){ if(v!=null && v.length>=3 && v[0]==0x16 && v[1]==0x16 && v[2]==0x02) onPinch(); }
+        private void handle(byte[] v){
+            if(v==null || v.length==0) return;
+            SharedPreferences prefs=getSharedPreferences("ring",MODE_PRIVATE);
+            boolean gesture=v.length>=3 && v[0]==0x16 && v[1]==0x16 && v[2]==0x02;
+            if(prefs.getBoolean("triple_test",false)) {
+                StringBuilder hex=new StringBuilder();
+                for(byte b:v) hex.append(String.format(Locale.US,"%02X ",b & 0xff));
+                long now=SystemClock.elapsedRealtime();
+                String line=now+"ms "+(gesture?"[더블 이벤트] ":"[기타] ")+hex.toString().trim();
+                synchronized(RingService.this){
+                    String previous=prefs.getString("triple_log","");
+                    String updated=line+"\n"+previous;
+                    if(updated.length()>12000) updated=updated.substring(0,12000);
+                    prefs.edit().putString("triple_log",updated)
+                        .putInt("triple_packets",prefs.getInt("triple_packets",0)+1)
+                        .putInt("triple_gestures",prefs.getInt("triple_gestures",0)+(gesture?1:0)).apply();
+                }
+                return; // Test mode: never toggle flashlight/media/ringtone.
+            }
+            if(gesture) onPinch();
+        }
         @Override public void onCharacteristicChanged(BluetoothGatt g,BluetoothGattCharacteristic c,byte[] v){ handle(v); }
         @SuppressWarnings("deprecation") @Override public void onCharacteristicChanged(BluetoothGatt g,BluetoothGattCharacteristic c){ handle(c.getValue()); }
     };

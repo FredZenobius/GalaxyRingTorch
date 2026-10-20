@@ -9,9 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: GalaxyRingTorch
 
     steps:
       - name: Checkout
@@ -29,11 +26,19 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+        shell: bash
+        run: |
+          PROJECT_DIR=$(dirname "$(find . -name settings.gradle.kts -not -path '*/build/*' -print -quit)")
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: settings.gradle.kts not found"
+            exit 1
+          fi
+          echo "Building project at: $PROJECT_DIR"
+          gradle -p "$PROJECT_DIR" assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GalaxyRingTorch-APK
-          path: GalaxyRingTorch/app/build/outputs/apk/debug/*.apk
+          path: '**/app/build/outputs/apk/debug/*.apk'
           if-no-files-found: error
